@@ -40,7 +40,7 @@ export const pgPool = new pg.Pool({ connectionString: process.env["DATABASE_URL"
 const sessionStore = new PgSession({
   pool: pgPool,
   tableName: "user_sessions",
-  createTableIfMissing: false,
+  createTableIfMissing: true,
 });
 
 sessionStore.on("error", (err) => {
