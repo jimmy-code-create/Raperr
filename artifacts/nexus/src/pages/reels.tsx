@@ -89,14 +89,14 @@ function Reel({ post, isActive }: { post: ReelPost; isActive: boolean }) {
     const next = !liked;
     setLiked(next);
     setLikeCount((c) => next ? c + 1 : Math.max(0, c - 1));
-    await fetch(`/api/posts/${post.id}/${next ? "like" : "unlike"}`, { method: "POST", credentials: "include" });
+    await fetch(`/api/posts/${post.id}/like`, { method: next ? "POST" : "DELETE", credentials: "include" });
     qc.invalidateQueries({ queryKey: ["/api/feed"] });
   };
 
   const handleSave = async () => {
     const next = !saved;
     setSaved(next);
-    await fetch(`/api/posts/${post.id}/${next ? "save" : "unsave"}`, { method: "POST", credentials: "include" });
+    await fetch(`/api/posts/${post.id}/save`, { method: next ? "POST" : "DELETE", credentials: "include" });
   };
 
   const rawUrl = post.mediaUrl ?? post.imageUrl;
@@ -243,28 +243,36 @@ function UploadModal({ onClose, onUploaded }: { onClose: () => void; onUploaded:
     if (!file) return;
     setUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const dataUrl = ev.target?.result as string;
-        const videoUrl = `[video]${dataUrl}`;
-        const res = await fetch("/api/posts", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: caption || "🎬", imageUrl: videoUrl, tags: ["reels"] }),
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch("/api/upload/media", { method: "POST", credentials: "include", body: formData });
+      let videoUrl: string;
+      if (uploadRes.ok) {
+        const { url } = await uploadRes.json() as { url: string };
+        videoUrl = `[video]${url}`;
+      } else {
+        videoUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(`[video]${ev.target?.result as string}`);
+          reader.readAsDataURL(file!);
         });
-        if (res.ok) {
-          toast({ title: "Reel posted! 🎬" });
-          onUploaded();
-          onClose();
-        } else {
-          toast({ title: "Upload failed", variant: "destructive" });
-        }
-        setUploading(false);
-      };
-      reader.readAsDataURL(file);
+      }
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: caption || "🎬", mediaUrl: videoUrl, tags: ["reels"] }),
+      });
+      if (res.ok) {
+        toast({ title: "Reel posted! 🎬" });
+        onUploaded();
+        onClose();
+      } else {
+        toast({ title: "Upload failed", variant: "destructive" });
+      }
     } catch {
       toast({ title: "Upload failed", variant: "destructive" });
+    } finally {
       setUploading(false);
     }
   };
