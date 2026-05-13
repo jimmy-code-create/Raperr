@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearch } from "wouter";
 import { Layout } from "@/components/Layout";
 import { Avatar } from "@/components/Avatar";
 import { EmojiPicker } from "@/components/EmojiPicker";
@@ -24,7 +25,15 @@ export default function DMsPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { data: conversations, isLoading } = useListConversations();
+  const urlSearch = useSearch();
+  const autoConvoId = urlSearch ? (parseInt(new URLSearchParams(urlSearch).get("c") ?? "", 10) || null) : null;
   const [active, setActive] = useState<Conversation | null>(null);
+
+  useEffect(() => {
+    if (!autoConvoId || !conversations?.conversations?.length || active) return;
+    const target = conversations.conversations.find((c) => c.id === autoConvoId);
+    if (target) setActive(target);
+  }, [autoConvoId, conversations]);
   const [messageText, setMessageText] = useState("");
   const [newDmTo, setNewDmTo] = useState("");
   const [showNew, setShowNew] = useState(false);
