@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../lib/db.js";
 import { notificationsTable, usersTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
 
 const router = Router();
@@ -18,6 +18,20 @@ router.get("/", requireAuth, async (req, res) => {
 
 router.post("/read-all", requireAuth, async (req, res) => {
   await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.userId, req.session!.userId!));
+  res.json({ ok: true });
+});
+
+router.post("/:id/read", requireAuth, async (req, res) => {
+  const notifId = Number(req.params["id"]);
+  const userId = req.session!.userId!;
+  await db.update(notificationsTable).set({ isRead: true }).where(and(eq(notificationsTable.id, notifId), eq(notificationsTable.userId, userId)));
+  res.json({ ok: true });
+});
+
+router.delete("/:id", requireAuth, async (req, res) => {
+  const notifId = Number(req.params["id"]);
+  const userId = req.session!.userId!;
+  await db.delete(notificationsTable).where(and(eq(notificationsTable.id, notifId), eq(notificationsTable.userId, userId)));
   res.json({ ok: true });
 });
 
