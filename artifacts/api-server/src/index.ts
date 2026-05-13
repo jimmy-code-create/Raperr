@@ -1,19 +1,34 @@
-import app, { pgPool } from "./app.js";
-import { logger } from "./lib/logger.js";
+import app, { pgPool } from "./app";
+import { logger } from "./lib/logger";
 
 const rawPort = process.env["PORT"];
-if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
+
+if (!rawPort) {
+  throw new Error(
+    "PORT environment variable is required but was not provided.",
+  );
+}
+
 const port = Number(rawPort);
-if (Number.isNaN(port) || port <= 0) throw new Error(`Invalid PORT value: "${rawPort}"`);
+
+if (Number.isNaN(port) || port <= 0) {
+  throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
 
 async function ensureSchema() {
   await pgPool.query(`
     CREATE TABLE IF NOT EXISTS "user_sessions" (
-      "sid" varchar NOT NULL, "sess" json NOT NULL, "expire" timestamp(6) NOT NULL
+      "sid" varchar NOT NULL,
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL
     )
   `);
-  await pgPool.query(`CREATE UNIQUE INDEX IF NOT EXISTS "user_sessions_sid_idx" ON "user_sessions" ("sid")`);
-  await pgPool.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire")`);
+  await pgPool.query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS "user_sessions_sid_idx" ON "user_sessions" ("sid")`,
+  );
+  await pgPool.query(
+    `CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire")`,
+  );
 
   await pgPool.query(`
     CREATE TABLE IF NOT EXISTS "users" (
@@ -22,8 +37,11 @@ async function ensureSchema() {
       "email" text NOT NULL UNIQUE,
       "password_hash" text,
       "display_name" text NOT NULL,
-      "first_name" text, "last_name" text, "bio" text,
-      "avatar_url" text, "banner_url" text,
+      "first_name" text,
+      "last_name" text,
+      "bio" text,
+      "avatar_url" text,
+      "banner_url" text,
       "is_verified" boolean NOT NULL DEFAULT false,
       "is_admin" boolean NOT NULL DEFAULT false,
       "is_banned" boolean NOT NULL DEFAULT false,
@@ -46,7 +64,8 @@ async function ensureSchema() {
       "id" serial PRIMARY KEY,
       "author_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
       "content" text NOT NULL,
-      "image_url" text, "video_url" text,
+      "image_url" text,
+      "video_url" text,
       "tags" json DEFAULT '[]',
       "like_count" integer NOT NULL DEFAULT 0,
       "comment_count" integer NOT NULL DEFAULT 0,
@@ -325,11 +344,26 @@ async function ensureSchema() {
       "created_at" timestamp NOT NULL DEFAULT now()
     )
   `);
+
+  logger.info("All database tables verified");
+}
+
+async function startKeepAlive() {
+  const selfUrl = process.env["RENDER_EXTERNAL_URL"];
+  if (!selfUrl) return;
+  setInterval(
+    () => {
+      fetch(`${selfUrl}/api/healthz`)
+        .then(() => logger.info("Keep-alive ping OK"))
+        .catch((err) => logger.warn({ err }, "Keep-alive ping failed"));
+    },
+    14 * 60 * 1000,
+  );
+  logger.info({ selfUrl }, "Keep-alive started");
 }
 
 async function start() {
   await ensureSchema();
-  logger.info("Schema ready");
 
   app.listen(port, (err) => {
     if (err) {
@@ -337,6 +371,7 @@ async function start() {
       process.exit(1);
     }
     logger.info({ port }, "Server listening");
+    startKeepAlive();
   });
 }
 
