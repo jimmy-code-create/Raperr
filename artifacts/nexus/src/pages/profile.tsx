@@ -130,7 +130,12 @@ export default function ProfilePage() {
     mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: [`/api/users/${userId}`] }) },
   });
   const { mutate: startConvo } = useStartConversation({
-    mutation: { onSuccess: () => navigate("/dms") },
+    mutation: {
+      onSuccess: (convo) => {
+        qc.invalidateQueries({ queryKey: ["/api/dm/conversations"] });
+        navigate(`/dms?c=${convo.id}`);
+      },
+    },
   });
   const { mutate: updateProfile, isPending: saving } = useUpdateMyProfile({
     mutation: {
