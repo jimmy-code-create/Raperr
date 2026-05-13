@@ -53,8 +53,10 @@ export default function DMsPage() {
   const groupInputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const convoLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ id: number; x: number; y: number; isMe: boolean; content: string } | null>(null);
   const [profilePopup, setProfilePopup] = useState<{ userId: string } | null>(null);
+  const [convoLongPress, setConvoLongPress] = useState<{ conv: Conversation } | null>(null);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [blockPending, setBlockPending] = useState(false);
@@ -560,6 +562,54 @@ export default function DMsPage() {
         />
       )}
 
+      {/* Conversation long-press action sheet */}
+      {convoLongPress && (() => {
+        const other = getOtherUser(convoLongPress.conv);
+        return (
+          <div className="fixed inset-0 z-[80] flex items-end justify-center" onClick={() => setConvoLongPress(null)}>
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div className="relative bg-card border border-card-border rounded-t-3xl sm:rounded-3xl w-full max-w-sm mx-0 sm:mx-4 sm:mb-8 p-5 shadow-2xl fade-in" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-5">
+                <Avatar src={other?.avatarUrl} name={other?.displayName || "User"} size="md" />
+                <div>
+                  <p className="font-black text-foreground">{other?.displayName || other?.username || "User"}</p>
+                  {other?.username && <p className="text-xs text-muted-foreground">@{other.username}</p>}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    const name = other?.displayName || other?.username || "Group";
+                    setConvoLongPress(null);
+                    setActiveTab("groups");
+                    setActive(null);
+                    setNewGroupName(name);
+                    setShowNewGroup(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-primary/10 text-primary rounded-2xl font-bold text-sm hover:bg-primary/20 transition-colors text-left"
+                >
+                  <Users className="w-4 h-4 flex-shrink-0" />
+                  <span>Create Group with {other?.displayName || other?.username || "User"}</span>
+                </button>
+                {other?.id && (
+                  <button
+                    onClick={() => { setConvoLongPress(null); setProfilePopup({ userId: other.id! }); }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 bg-muted text-foreground rounded-2xl font-bold text-sm hover:bg-muted/70 transition-colors text-left"
+                  >
+                    <Avatar src={other.avatarUrl} name={other.displayName || "User"} size="sm" />
+                    <span>View Profile</span>
+                  </button>
+                )}
+                <button onClick={() => setConvoLongPress(null)}
+                  className="w-full py-3 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Block confirm dialog */}
       {showBlockConfirm && otherUser && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -676,8 +726,13 @@ export default function DMsPage() {
                 filteredConvos.map((conv) => {
                   const other = getOtherUser(conv);
                   return (
-                  <button key={conv.id} onClick={() => setActive(conv)}
-                    className={cn("w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left",
+                  <button key={conv.id}
+                    onMouseDown={() => { convoLongPressTimer.current = setTimeout(() => { setConvoLongPress({ conv }); convoLongPressTimer.current = null; }, 500); }}
+                    onMouseUp={() => { if (convoLongPressTimer.current) { clearTimeout(convoLongPressTimer.current); convoLongPressTimer.current = null; setActive(conv); } }}
+                    onMouseLeave={() => { if (convoLongPressTimer.current) { clearTimeout(convoLongPressTimer.current); convoLongPressTimer.current = null; } }}
+                    onTouchStart={() => { convoLongPressTimer.current = setTimeout(() => { setConvoLongPress({ conv }); convoLongPressTimer.current = null; }, 500); }}
+                    onTouchEnd={() => { if (convoLongPressTimer.current) { clearTimeout(convoLongPressTimer.current); convoLongPressTimer.current = null; setActive(conv); } }}
+                    className={cn("w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left select-none",
                       active?.id === conv.id ? "bg-primary/5 border-l-2 border-primary" : "")}>
                     <Avatar src={other?.avatarUrl} name={other?.displayName || "User"} size="md" online={isOnline(other?.id)} />
                     <div className="flex-1 min-w-0">
