@@ -268,8 +268,8 @@ router.post("/:userId/follow", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /api/users/:userId/unfollow
-router.post("/:userId/unfollow", requireAuth, async (req, res) => {
+// DELETE /api/users/:userId/follow
+router.delete("/:userId/follow", requireAuth, async (req, res) => {
   const followerId = req.session!.userId!;
   const followingId = String(req.params["userId"]);
   await db.delete(followsTable).where(and(eq(followsTable.followerId, followerId), eq(followsTable.followingId, followingId)));
