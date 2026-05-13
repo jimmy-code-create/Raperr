@@ -3,6 +3,8 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
 import cookieParser from "cookie-parser";
+import connectPgSimple from "connect-pg-simple";
+import pg from "pg";
 import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
 import path from "path";
@@ -30,10 +32,18 @@ app.use(
   }),
 );
 
+const PgSession = connectPgSimple(session);
+const pgPool = new pg.Pool({ connectionString: process.env["DATABASE_URL"] });
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser(process.env["SESSION_SECRET"] ?? "rizz-secret-2024"));
 app.use(
   session({
+    store: new PgSession({
+      pool: pgPool,
+      tableName: "user_sessions",
+      createTableIfMissing: true,
+    }),
     secret: process.env["SESSION_SECRET"] ?? "rizz-secret-2024",
     resave: false,
     saveUninitialized: false,
