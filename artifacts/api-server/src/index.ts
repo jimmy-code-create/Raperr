@@ -17,32 +17,24 @@ if (Number.isNaN(port) || port <= 0) {
 
 async function ensureSessionTable() {
   await pgPool.query(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.tables WHERE table_name = 'user_sessions'
-      ) THEN
-        CREATE TABLE "user_sessions" (
-          "sid" varchar NOT NULL,
-          "sess" json NOT NULL,
-          "expire" timestamp(6) NOT NULL
-        );
-      END IF;
+    CREATE TABLE IF NOT EXISTS "user_sessions" (
+      "sid" varchar NOT NULL,
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL
+    )
+  `);
 
-      IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'session_pkey'
-        AND contype = 'p'
-        AND conrelid = 'user_sessions'::regclass
-      ) THEN
-        DROP INDEX IF EXISTS "session_pkey";
-        ALTER TABLE "user_sessions"
-          ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;
-      END IF;
-    END;
-    $$;
+  try {
+    await pgPool.query(`
+      ALTER TABLE "user_sessions"
+      ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+    `);
+  } catch (err: any) {
+    if (err.code !== "42710" && err.code !== "42P07") throw err;
+  }
 
-    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire");
+  await pgPool.query(`
+    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire")
   `);
 }
 
