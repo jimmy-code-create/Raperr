@@ -31,8 +31,7 @@ export const postsTable = pgTable("posts", {
   id: serial("id").primaryKey(),
   authorId: text("author_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
-  imageUrl: text("image_url"),
-  videoUrl: text("video_url"),
+  mediaUrl: text("media_url"),
   tags: json("tags").$type<string[]>().default([]),
   likeCount: integer("like_count").notNull().default(0),
   commentCount: integer("comment_count").notNull().default(0),
@@ -140,8 +139,11 @@ export const groupMessagesTable = pgTable("group_messages", {
 export const storiesTable = pgTable("stories", {
   id: serial("id").primaryKey(),
   authorId: text("author_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
-  imageUrl: text("image_url").notNull(),
+  mediaUrl: text("media_url"),
+  type: text("type").default("image"),
   caption: text("caption"),
+  textOverlay: json("text_overlay"),
+  viewCount: integer("view_count").notNull().default(0),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -150,7 +152,7 @@ export const storyViewsTable = pgTable("story_views", {
   id: serial("id").primaryKey(),
   storyId: integer("story_id").notNull().references(() => storiesTable.id, { onDelete: "cascade" }),
   viewerId: text("viewer_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  viewedAt: timestamp("viewed_at").notNull().defaultNow(),
 });
 
 export const badgesTable = pgTable("badges", {
