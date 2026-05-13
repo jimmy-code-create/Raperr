@@ -32,8 +32,10 @@ Use `render.yaml` at the root for one-click deployment.
 
 **Build command (Render):**
 ```
-npm install -g pnpm && pnpm install && pnpm --filter @workspace/nexus run build && pnpm --filter @workspace/api-server run build
+corepack enable pnpm && pnpm install && pnpm --filter @workspace/nexus run build && pnpm --filter @workspace/api-server run build
 ```
+
+> **Important:** If your Render service was created via the dashboard (not via render.yaml), you must manually paste this into **Settings → Build & Deploy → Build Command** — Render uses the dashboard value, not render.yaml, for existing services.
 
 **Start command:** `node artifacts/api-server/dist/index.mjs`
 
