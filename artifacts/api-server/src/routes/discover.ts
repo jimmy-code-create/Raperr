@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../lib/db.js";
-import { postsTable, usersTable, followsTable, likesTable, savesTable, badgesTable, userBadgesTable } from "@workspace/db";
-import { eq, and, desc, ne, notInArray, sql } from "drizzle-orm";
+import { postsTable, usersTable, followsTable, likesTable, savesTable, badgesTable, userBadgesTable, serversTable } from "@workspace/db";
+import { eq, and, or, desc, ne, notInArray, ilike, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
 
 const router = Router();
@@ -91,6 +91,29 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
     }),
   );
   res.json({ users: enriched });
+});
+
+// GET /api/search — unified search across users, posts, servers
+router.get("/search", requireAuth, async (req, res) => {
+  const q = (req.query["q"] as string ?? "").trim();
+  if (!q) { res.json({ users: [], posts: [], servers: [] }); return; }
+  const userId = req.session!.userId!;
+  const [userRows, postRows, serverRows] = await Promise.all([
+    db.select().from(usersTable).where(
+      and(
+        or(ilike(usersTable.username, `%${q}%`), ilike(usersTable.displayName, `%${q}%`)),
+        ne(usersTable.id, userId),
+      )
+    ).limit(15),
+    db.query.postsTable.findMany({ where: ilike(postsTable.content, `%${q}%`), orderBy: [desc(postsTable.createdAt)], limit: 20 }),
+    db.query.serversTable.findMany({ where: ilike(serversTable.name, `%${q}%`), limit: 15 }),
+  ]);
+  const enrichedPosts = await Promise.all(postRows.map((p) => enrichPost(p, userId)));
+  res.json({
+    users: userRows.map((u) => ({ id: u.id, username: u.username, displayName: u.displayName, avatarUrl: u.avatarUrl, isVerified: u.isVerified, bio: u.bio, followerCount: u.followerCount })),
+    posts: enrichedPosts,
+    servers: serverRows.map((s) => ({ id: s.id, name: s.name, description: s.description, iconUrl: s.iconUrl, memberCount: s.memberCount, tags: (s.tags as string[]) ?? [] })),
+  });
 });
 
 // GET /api/suggestions
