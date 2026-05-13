@@ -345,6 +345,14 @@ async function ensureSchema() {
     )
   `);
 
+  // Migration safety: add new columns in case Drizzle push didn't run correctly
+  await pgPool.query(`ALTER TABLE IF EXISTS posts ADD COLUMN IF NOT EXISTS media_url text`);
+  await pgPool.query(`ALTER TABLE IF EXISTS stories ADD COLUMN IF NOT EXISTS media_url text`);
+  await pgPool.query(`ALTER TABLE IF EXISTS stories ADD COLUMN IF NOT EXISTS type text DEFAULT 'image'`);
+  await pgPool.query(`ALTER TABLE IF EXISTS stories ADD COLUMN IF NOT EXISTS text_overlay json`);
+  await pgPool.query(`ALTER TABLE IF EXISTS stories ADD COLUMN IF NOT EXISTS view_count integer NOT NULL DEFAULT 0`);
+  await pgPool.query(`ALTER TABLE IF EXISTS story_views ADD COLUMN IF NOT EXISTS viewed_at timestamp NOT NULL DEFAULT now()`);
+
   logger.info("All database tables verified");
 }
 
