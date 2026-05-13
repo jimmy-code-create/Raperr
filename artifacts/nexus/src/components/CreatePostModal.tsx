@@ -54,14 +54,24 @@ export function CreatePostModal({ onClose }: { onClose: () => void }) {
     if (!file) return;
     setUploading(true);
     setIsVideo(file.type.startsWith("video/"));
+    // Show local preview immediately via DataURL
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       setImagePreview(dataUrl);
-      setImageUrl(dataUrl);
-      setUploading(false);
+      setImageUrl(dataUrl); // temporary fallback
     };
     reader.readAsDataURL(file);
+    // Upload to server in parallel — replace the dataURL with a real URL once done
+    const form = new FormData();
+    form.append("file", file);
+    fetch("/api/upload/media", { method: "POST", credentials: "include", body: form })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { url?: string } | null) => {
+        if (data?.url) setImageUrl(data.url);
+      })
+      .catch(() => {})
+      .finally(() => setUploading(false));
   };
 
   const insertEmoji = (emoji: string) => {
@@ -98,7 +108,7 @@ export function CreatePostModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) return;
+    if (!content.trim() || uploading) return;
     const manualTags = tagsInput
       .split(",")
       .map((t) => t.trim().replace(/^#/, ""))
@@ -195,8 +205,9 @@ export function CreatePostModal({ onClose }: { onClose: () => void }) {
           {(imagePreview || imageUrl) && (
             <div className="relative mb-4 rounded-2xl overflow-hidden bg-muted">
               {uploading ? (
-                <div className="h-40 flex items-center justify-center">
+                <div className="h-40 flex items-center justify-center gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="text-xs text-muted-foreground">Uploading…</span>
                 </div>
               ) : isVideo ? (
                 <video src={imagePreview || imageUrl} className="w-full max-h-64 object-cover" muted autoPlay loop playsInline />
@@ -388,15 +399,19 @@ export function CreatePostModal({ onClose }: { onClose: () => void }) {
 
             <button
               type="submit"
-              disabled={!content.trim() || isPending || overLimit}
+              disabled={!content.trim() || isPending || overLimit || uploading}
               className={cn(
                 "px-6 py-2.5 rounded-2xl text-sm font-black transition-all",
-                content.trim() && !isPending && !overLimit
+                content.trim() && !isPending && !overLimit && !uploading
                   ? "btn-primary text-primary-foreground glow-primary-sm"
                   : "bg-muted text-muted-foreground cursor-not-allowed"
               )}
             >
-              {isPending ? (
+              {uploading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Uploading…
+                </span>
+              ) : isPending ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" /> Posting…
                 </span>
