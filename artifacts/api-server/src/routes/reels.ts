@@ -68,8 +68,8 @@ router.post("/:reelId/like", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /api/reels/:reelId/unlike
-router.post("/:reelId/unlike", requireAuth, async (req, res) => {
+// DELETE /api/reels/:reelId/like
+router.delete("/:reelId/like", requireAuth, async (req, res) => {
   const reelId = Number(req.params["reelId"]);
   const userId = req.session!.userId!;
   await db.delete(reelLikesTable).where(and(eq(reelLikesTable.reelId, reelId), eq(reelLikesTable.userId, userId)));
