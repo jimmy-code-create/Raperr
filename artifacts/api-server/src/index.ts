@@ -15,17 +15,31 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-async function start() {
+async function ensureSessionTable() {
   await pgPool.query(`
     CREATE TABLE IF NOT EXISTS "user_sessions" (
       "sid" varchar NOT NULL COLLATE "default",
       "sess" json NOT NULL,
-      "expire" timestamp(6) NOT NULL,
-      CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
-    ) WITH (OIDS=FALSE);
-    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire");
+      "expire" timestamp(6) NOT NULL
+    )
   `);
 
+  try {
+    await pgPool.query(`
+      ALTER TABLE "user_sessions"
+      ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+    `);
+  } catch (err: any) {
+    if (err.code !== "42P07" && err.code !== "42710") throw err;
+  }
+
+  await pgPool.query(`
+    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire")
+  `);
+}
+
+async function start() {
+  await ensureSessionTable();
   logger.info("Session table ready");
 
   app.listen(port, (err) => {
