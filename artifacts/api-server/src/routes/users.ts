@@ -49,7 +49,7 @@ router.get("/me", requireAuth, async (req, res) => {
 });
 
 // PATCH /api/users/me
-router.patch("/me", requireAuth, async (req, res) => {
+async function handleUpdateMe(req: import("express").Request, res: import("express").Response) {
   const { displayName, bio, avatarUrl, bannerUrl, interests } = req.body as {
     displayName?: string; bio?: string; avatarUrl?: string; bannerUrl?: string; interests?: string[];
   };
@@ -62,7 +62,10 @@ router.patch("/me", requireAuth, async (req, res) => {
   const [user] = await db.update(usersTable).set(updates).where(eq(usersTable.id, req.session!.userId!)).returning();
   const full = await getUserWithTopBadge(user!.id, user!.id);
   res.json(full);
-});
+}
+
+router.patch("/me", requireAuth, handleUpdateMe);
+router.put("/me", requireAuth, handleUpdateMe);
 
 // POST /api/users/me/heartbeat — marks user as online (call every 30s)
 router.post("/me/heartbeat", requireAuth, async (req, res) => {
