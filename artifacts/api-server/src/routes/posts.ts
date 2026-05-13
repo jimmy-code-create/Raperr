@@ -98,7 +98,7 @@ router.post("/:postId/like", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-router.post("/:postId/unlike", requireAuth, async (req, res) => {
+router.delete("/:postId/like", requireAuth, async (req, res) => {
   const postId = Number(req.params["postId"]);
   await db.delete(likesTable).where(and(eq(likesTable.userId, req.session!.userId!), eq(likesTable.postId, postId)));
   const post = await db.query.postsTable.findFirst({ where: eq(postsTable.id, postId) });
@@ -113,7 +113,7 @@ router.post("/:postId/save", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-router.post("/:postId/unsave", requireAuth, async (req, res) => {
+router.delete("/:postId/save", requireAuth, async (req, res) => {
   const postId = Number(req.params["postId"]);
   await db.delete(savesTable).where(and(eq(savesTable.userId, req.session!.userId!), eq(savesTable.postId, postId)));
   res.json({ ok: true });
