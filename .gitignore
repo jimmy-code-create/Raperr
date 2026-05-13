@@ -47,3 +47,12 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Uploads (runtime generated files)
+artifacts/api-server/uploads/*
+!artifacts/api-server/uploads/.gitkeep
+
+# Environment
+.env
+.env.*
+!.env.example

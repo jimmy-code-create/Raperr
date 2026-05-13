@@ -1,36 +1,61 @@
-# [Project name]
+# Nexus
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A full-stack social platform with posts, DMs, groups, servers, reels, real-time notifications, and more.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/nexus run dev` — run the frontend dev server
+- `pnpm --filter @workspace/api-server run dev` — run the API server
 - `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Frontend: React + Vite + TailwindCSS + shadcn/ui (`artifacts/nexus/`)
+- API: Express 5 (`artifacts/api-server/`)
+- DB: PostgreSQL + Drizzle ORM (`lib/db/`)
+- Real-time: Server-Sent Events (SSE)
+- Push notifications: web-push + VAPID
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/nexus/` — React frontend (pages, components, hooks)
+- `artifacts/api-server/src/routes/` — Express API routes
+- `lib/db/src/schema/index.ts` — Drizzle DB schema (source of truth)
+- `artifacts/nexus/vite.config.ts` — Vite config (PORT and BASE_PATH default to 5173 and /)
+
+## Deploying to Render
+
+Use `render.yaml` at the root for one-click deployment.
+
+**Build command (Render):**
+```
+npm install -g pnpm && pnpm install && pnpm --filter @workspace/nexus run build && pnpm --filter @workspace/api-server run build
+```
+
+**Start command:** `node artifacts/api-server/dist/index.mjs`
+
+**Required env vars on Render:**
+- `DATABASE_URL` — your Postgres connection string (use Render's managed Postgres or external)
+- `SESSION_SECRET` — a long random string
+- `NODE_ENV=production` (auto-set in render.yaml)
+- Optional: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_EMAIL` for push notifications
+
+After first deploy, run the DB migration to create tables:
+```
+pnpm --filter @workspace/db run push
+```
+(Run this locally pointing at your production DATABASE_URL, or via a Render shell)
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Single web service on Render: the Express backend builds and serves the Vite frontend as static files in production
+- All API routes are prefixed with `/api/` — the frontend catches all other routes for client-side routing
+- SSE used for real-time events (notifications, messages, typing indicators, calls)
+- Sessions stored server-side with express-session (cookie-based, httpOnly, secure in production)
+- File uploads stored in `uploads/` directory (ephemeral on Render free tier — use object storage for persistence)
 
 ## User preferences
 
@@ -38,7 +63,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- The vite.config.ts no longer requires PORT/BASE_PATH — they default to 5173 and / respectively
+- In production, the Express server serves the built frontend from `artifacts/nexus/dist/`
+- The `uploads/` directory is ephemeral on Render's free tier — uploaded files will be lost on redeploy
 
 ## Pointers
 
