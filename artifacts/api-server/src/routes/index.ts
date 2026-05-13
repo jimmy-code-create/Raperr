@@ -16,6 +16,7 @@ import discoverRouter from "./discover.js";
 import eventsRouter from "./events.js";
 import pushRouter from "./push.js";
 import adminRouter from "./admin.js";
+import channelsRouter from "./channels.js";
 
 const router: IRouter = Router();
 
@@ -36,6 +37,7 @@ router.use("/reels", reelsRouter);
 router.use("/calls", callsRouter);
 router.use("/push", pushRouter);
 router.use("/admin", adminRouter);
+router.use(channelsRouter);
 router.use(discoverRouter);
 
 export default router;
