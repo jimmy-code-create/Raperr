@@ -35,7 +35,7 @@ router.get("/", requireAuth, async (req, res) => {
       };
     })
   );
-  res.json({ groups });
+  res.json({ storyGroups: groups });
 });
 
 router.post("/", requireAuth, async (req, res) => {
