@@ -33,7 +33,7 @@ app.use(
 );
 
 const PgSession = connectPgSimple(session);
-const pgPool = new pg.Pool({ connectionString: process.env["DATABASE_URL"] });
+export const pgPool = new pg.Pool({ connectionString: process.env["DATABASE_URL"] });
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser(process.env["SESSION_SECRET"] ?? "rizz-secret-2024"));
@@ -42,7 +42,7 @@ app.use(
     store: new PgSession({
       pool: pgPool,
       tableName: "user_sessions",
-      createTableIfMissing: true,
+      createTableIfMissing: false,
     }),
     secret: process.env["SESSION_SECRET"] ?? "rizz-secret-2024",
     resave: false,
