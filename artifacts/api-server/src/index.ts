@@ -352,8 +352,38 @@ async function ensureSchema() {
   await pgPool.query(`ALTER TABLE IF EXISTS stories ADD COLUMN IF NOT EXISTS text_overlay json`);
   await pgPool.query(`ALTER TABLE IF EXISTS stories ADD COLUMN IF NOT EXISTS view_count integer NOT NULL DEFAULT 0`);
   await pgPool.query(`ALTER TABLE IF EXISTS story_views ADD COLUMN IF NOT EXISTS viewed_at timestamp NOT NULL DEFAULT now()`);
+  await pgPool.query(`ALTER TABLE IF EXISTS badges ADD COLUMN IF NOT EXISTS color text DEFAULT '#7c3aed'`);
 
   logger.info("All database tables verified");
+}
+
+async function ensureAdminUser() {
+  const adminEmail = process.env["ADMIN_EMAIL"];
+  const adminPassword = process.env["ADMIN_PASSWORD"];
+  if (!adminEmail || !adminPassword) return;
+
+  const bcrypt = await import("bcryptjs");
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
+
+  const existing = await pgPool.query(`SELECT id FROM users WHERE email = $1`, [adminEmail]);
+  if (existing.rows.length > 0) {
+    await pgPool.query(
+      `UPDATE users SET is_admin = true, password_hash = $1 WHERE email = $2`,
+      [passwordHash, adminEmail]
+    );
+    logger.info({ email: adminEmail }, "Admin user updated");
+  } else {
+    const { nanoid } = await import("nanoid");
+    const id = nanoid();
+    const username = adminEmail.split("@")[0]!.replace(/[^a-z0-9_]/gi, "_").toLowerCase();
+    await pgPool.query(
+      `INSERT INTO users (id, username, email, password_hash, display_name, is_admin, onboarding_completed)
+       VALUES ($1, $2, $3, $4, $5, true, true)
+       ON CONFLICT (email) DO UPDATE SET is_admin = true, password_hash = $4`,
+      [id, username, adminEmail, passwordHash, username]
+    );
+    logger.info({ email: adminEmail }, "Admin user created");
+  }
 }
 
 async function startKeepAlive() {
@@ -372,6 +402,7 @@ async function startKeepAlive() {
 
 async function start() {
   await ensureSchema();
+  await ensureAdminUser();
 
   app.listen(port, (err) => {
     if (err) {
