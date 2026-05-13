@@ -3,10 +3,20 @@ import { requireAuth } from "../lib/auth.js";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { Readable } from "stream";
+import fs from "fs";
+import path from "path";
+import { randomUUID } from "crypto";
 
 const router = Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+
+function isCloudinaryConfigured(): boolean {
+  return !!(
+    process.env["CLOUDINARY_URL"] ||
+    (process.env["CLOUDINARY_CLOUD_NAME"] && process.env["CLOUDINARY_API_KEY"] && process.env["CLOUDINARY_API_SECRET"])
+  );
+}
 
 function uploadBufferToCloudinary(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -24,10 +34,23 @@ function uploadBufferToCloudinary(buffer: Buffer): Promise<string> {
   });
 }
 
+function saveBufferLocally(buffer: Buffer, mimeType: string): string {
+  const uploadsDir = path.resolve("./uploads");
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+  const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") ?? "bin";
+  const filename = `${randomUUID()}.${ext}`;
+  fs.writeFileSync(path.join(uploadsDir, filename), buffer);
+  return `/api/uploads/${filename}`;
+}
+
 router.post("/media", requireAuth, upload.single("file"), async (req, res) => {
   try {
+    const useCloudinary = isCloudinaryConfigured();
+
     if (req.file) {
-      const url = await uploadBufferToCloudinary(req.file.buffer);
+      const url = useCloudinary
+        ? await uploadBufferToCloudinary(req.file.buffer)
+        : saveBufferLocally(req.file.buffer, req.file.mimetype);
       res.json({ url });
       return;
     }
@@ -45,7 +68,10 @@ router.post("/media", requireAuth, upload.single("file"), async (req, res) => {
     }
 
     const buffer = Buffer.from(match[2]!, "base64");
-    const url = await uploadBufferToCloudinary(buffer);
+    const mimeType = match[1]!;
+    const url = useCloudinary
+      ? await uploadBufferToCloudinary(buffer)
+      : saveBufferLocally(buffer, mimeType);
     res.json({ url });
   } catch {
     res.status(500).json({ error: "Upload failed" });
