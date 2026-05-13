@@ -49,7 +49,7 @@ export default function DMsPage() {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [blockPending, setBlockPending] = useState(false);
-  const [callState, setCallState] = useState<null | CallState>(null);
+  const [callState, setCallState] = useState<CallState | null>(null);
   const [callDeclined, setCallDeclined] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
