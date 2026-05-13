@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db } from "../lib/db.js";
+import { pgPool } from "../app.js";
 import { usersTable, badgesTable, userBadgesTable, groupsTable, serversTable, postsTable } from "@workspace/db";
 import { eq, or, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -79,16 +80,19 @@ router.post("/users/:id/make-admin", requireAuth, async (req, res) => {
 
 router.get("/badges", requireAuth, async (req, res) => {
   if (!await checkAdmin(req.session!.userId!)) { res.status(403).json({ error: "Forbidden" }); return; }
-  const badges = await db.query.badgesTable.findMany();
-  res.json({ badges: badges.map(b => ({ id: b.id, name: b.name, description: b.description, icon: b.icon, rarity: b.rarity, color: b.color })) });
+  const result = await pgPool.query(`SELECT id, name, description, icon_url as icon, rarity, COALESCE(color, '#7c3aed') as color FROM badges ORDER BY created_at DESC`);
+  res.json({ badges: result.rows });
 });
 
 router.post("/badges", requireAuth, async (req, res) => {
   if (!await checkAdmin(req.session!.userId!)) { res.status(403).json({ error: "Forbidden" }); return; }
   const { name, description, icon, rarity, color } = req.body as { name: string; description?: string; icon?: string; rarity?: string; color?: string };
   if (!name) { res.status(400).json({ error: "name required" }); return; }
-  const [badge] = await db.insert(badgesTable).values({ name, description: description ?? "", icon: icon ?? "🏅", rarity: rarity ?? "common", color: color ?? "#7c3aed" }).returning();
-  res.status(201).json(badge);
+  const result = await pgPool.query(
+    `INSERT INTO badges (name, description, icon_url, rarity, color) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, icon_url as icon, rarity, color`,
+    [name, description ?? "", icon ?? "🏅", rarity ?? "common", color ?? "#7c3aed"]
+  );
+  res.status(201).json(result.rows[0]);
 });
 
 router.delete("/badges/:id", requireAuth, async (req, res) => {
