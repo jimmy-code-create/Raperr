@@ -122,6 +122,23 @@ router.post("/conversations/:id/seen", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /api/dm/typing — frontend sends { conversationId?, groupId? } in body
+router.post("/typing", requireAuth, async (req, res) => {
+  const { conversationId } = req.body as { conversationId?: string; groupId?: string };
+  const senderId = req.session!.userId!;
+  if (conversationId) {
+    const convId = Number(conversationId);
+    const sender = await db.query.usersTable.findFirst({ where: eq(usersTable.id, senderId) });
+    const parts = await db.query.conversationParticipantsTable.findMany({ where: eq(conversationParticipantsTable.conversationId, convId) });
+    for (const p of parts) {
+      if (p.userId !== senderId) {
+        sendSseEvent(p.userId, "typing", { conversationId: convId, userId: senderId, name: sender?.displayName ?? sender?.username ?? "Someone" });
+      }
+    }
+  }
+  res.json({ ok: true });
+});
+
 // POST /api/dm/conversations/:id/typing
 router.post("/conversations/:id/typing", requireAuth, async (req, res) => {
   const convId = Number(req.params["id"]);
