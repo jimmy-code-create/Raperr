@@ -18,6 +18,8 @@ declare module "express-session" {
 
 const app: Express = express();
 
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,
@@ -35,23 +37,29 @@ app.use(
 const PgSession = connectPgSimple(session);
 export const pgPool = new pg.Pool({ connectionString: process.env["DATABASE_URL"] });
 
+const sessionStore = new PgSession({
+  pool: pgPool,
+  tableName: "user_sessions",
+  createTableIfMissing: false,
+});
+
+sessionStore.on("error", (err) => {
+  logger.error({ err }, "Session store error");
+});
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser(process.env["SESSION_SECRET"] ?? "rizz-secret-2024"));
 app.use(
   session({
-    store: new PgSession({
-      pool: pgPool,
-      tableName: "user_sessions",
-      createTableIfMissing: false,
-    }),
+    store: sessionStore,
     secret: process.env["SESSION_SECRET"] ?? "rizz-secret-2024",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env["NODE_ENV"] === "production",
+      secure: true,
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 30,
-      sameSite: process.env["NODE_ENV"] === "production" ? "none" : "lax",
+      sameSite: "none",
     },
   }),
 );
