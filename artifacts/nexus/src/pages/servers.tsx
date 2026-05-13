@@ -71,7 +71,8 @@ export default function ServersPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: serverDetail } = useGetServer(activeServer?.id ?? 0);
   const { data: channels } = useListChannels(activeServer?.id ?? 0);
-  const { data: messages, refetch: refetchMessages } = useGetChannelMessages(String(activeChannel?.id ?? ""), { query: { enabled: !!activeChannel } } as Parameters<typeof useGetChannelMessages>[1]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: messages, refetch: refetchMessages } = useGetChannelMessages(String(activeChannel?.id ?? ""), { query: { enabled: !!activeChannel } } as any);
 
   const { data: roles } = useQuery({
     queryKey: [`/api/servers/${activeServer?.id}/roles`],
@@ -398,5 +399,4 @@ export default function ServersPage() {
             <div className="p-3 border-b border-sidebar-border bg-primary/5">
               <p className="text-xs font-bold text-primary mb-2">Create a server</p>
               <input
-                value={newServerName}
-        
+                value
