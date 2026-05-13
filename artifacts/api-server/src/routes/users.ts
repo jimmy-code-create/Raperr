@@ -26,13 +26,18 @@ async function getUserWithTopBadge(userId: string, viewerId?: string) {
     isFollowingBack = followBackRows.length > 0;
     isBlocked = blockRows.length > 0;
   }
-  const topBadgeRow = await db
-    .select({ badge: badgesTable })
-    .from(userBadgesTable)
-    .innerJoin(badgesTable, eq(userBadgesTable.badgeId, badgesTable.id))
-    .where(and(eq(userBadgesTable.userId, userId), eq(userBadgesTable.isTop, true)))
-    .limit(1);
-  const topBadge = topBadgeRow[0]?.badge ?? null;
+  let topBadge = null;
+  try {
+    const topBadgeRow = await db
+      .select({ badge: badgesTable })
+      .from(userBadgesTable)
+      .innerJoin(badgesTable, eq(userBadgesTable.badgeId, badgesTable.id))
+      .where(and(eq(userBadgesTable.userId, userId), eq(userBadgesTable.isTop, true)))
+      .limit(1);
+    topBadge = topBadgeRow[0]?.badge ?? null;
+  } catch {
+    topBadge = null;
+  }
   return { ...serializeUser(user, { isFollowing }), isFollowingBack, isBlocked, topBadge };
 }
 
@@ -54,7 +59,6 @@ router.patch("/me", requireAuth, async (req, res) => {
   if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
   if (bannerUrl !== undefined) updates.bannerUrl = bannerUrl;
   if (interests !== undefined) updates.interests = interests;
-  updates.updatedAt = new Date();
   const [user] = await db.update(usersTable).set(updates).where(eq(usersTable.id, req.session!.userId!)).returning();
   const full = await getUserWithTopBadge(user!.id, user!.id);
   res.json(full);
@@ -77,7 +81,7 @@ router.get("/online", requireAuth, async (req, res) => {
 // PUT /api/users/me/status
 router.put("/me/status", requireAuth, async (req, res) => {
   const { status, dnd } = req.body as { status?: string | null; dnd?: boolean };
-  const updates: Partial<typeof usersTable.$inferInsert> = { updatedAt: new Date() };
+  const updates: Partial<typeof usersTable.$inferInsert> = {};
   if (status !== undefined) updates.customStatus = status;
   if (dnd !== undefined) updates.dnd = dnd;
   const [user] = await db.update(usersTable).set(updates).where(eq(usersTable.id, req.session!.userId!)).returning();
@@ -89,7 +93,7 @@ router.post("/me/onboarding", requireAuth, async (req, res) => {
   const { displayName, username, bio, interests, avatarUrl } = req.body as {
     displayName?: string; username?: string; bio?: string; interests?: string[]; avatarUrl?: string;
   };
-  const updates: Partial<typeof usersTable.$inferInsert> = { onboardingCompleted: true, updatedAt: new Date() };
+  const updates: Partial<typeof usersTable.$inferInsert> = { onboardingCompleted: true };
   if (displayName) updates.displayName = displayName;
   if (username) updates.username = username;
   if (bio) updates.bio = bio;
@@ -165,12 +169,10 @@ router.get("/:userId/following", requireAuth, async (req, res) => {
 router.get("/:userId/friends", requireAuth, async (req, res) => {
   const targetId = String(req.params["userId"]);
   const myId = req.session!.userId!;
-  // Who target follows
   const targetFollowing = await db.select({ followingId: followsTable.followingId })
     .from(followsTable).where(eq(followsTable.followerId, targetId));
   const targetFollowingIds = targetFollowing.map((r) => r.followingId);
   if (!targetFollowingIds.length) { res.json({ users: [] }); return; }
-  // Who follows target back (mutual)
   const mutual = await db.select({ followerId: followsTable.followerId })
     .from(followsTable)
     .where(and(
@@ -216,12 +218,16 @@ router.get("/:userId/posts", requireAuth, async (req, res) => {
 // GET /api/users/:userId/badges
 router.get("/:userId/badges", requireAuth, async (req, res) => {
   const targetUserId = String(req.params["userId"]);
-  const rows = await db
-    .select({ badge: badgesTable, earnedAt: userBadgesTable.earnedAt, isTop: userBadgesTable.isTop })
-    .from(userBadgesTable)
-    .innerJoin(badgesTable, eq(userBadgesTable.badgeId, badgesTable.id))
-    .where(eq(userBadgesTable.userId, targetUserId));
-  res.json({ badges: rows.map((r) => ({ ...r.badge, earnedAt: r.earnedAt.toISOString(), owned: true })) });
+  try {
+    const rows = await db
+      .select({ badge: badgesTable, earnedAt: userBadgesTable.earnedAt, isTop: userBadgesTable.isTop })
+      .from(userBadgesTable)
+      .innerJoin(badgesTable, eq(userBadgesTable.badgeId, badgesTable.id))
+      .where(eq(userBadgesTable.userId, targetUserId));
+    res.json({ badges: rows.map((r) => ({ ...r.badge, earnedAt: r.earnedAt.toISOString(), owned: true })) });
+  } catch {
+    res.json({ badges: [] });
+  }
 });
 
 // GET /api/users/:userId/mutuals
