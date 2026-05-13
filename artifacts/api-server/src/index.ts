@@ -24,17 +24,14 @@ async function ensureSessionTable() {
     )
   `);
 
-  try {
-    await pgPool.query(`
-      ALTER TABLE "user_sessions"
-      ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
-    `);
-  } catch (err: any) {
-    if (err.code !== "42710" && err.code !== "42P07") throw err;
-  }
+  await pgPool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS "user_sessions_sid_idx"
+    ON "user_sessions" ("sid")
+  `);
 
   await pgPool.query(`
-    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire")
+    CREATE INDEX IF NOT EXISTS "IDX_session_expire"
+    ON "user_sessions" ("expire")
   `);
 }
 
